@@ -1,4 +1,5 @@
 #include <SDL.h>
+#include <SDL_video.h>
 #include <input.h>
 
 event get_event(void)
@@ -10,6 +11,13 @@ event get_event(void)
     if (e.type == SDL_QUIT)
     {
         out.type = QUIT;
+    }
+    else if (e.type == SDL_WINDOWEVENT && 
+             e.window.event == SDL_WINDOWEVENT_RESIZED)
+    {
+        out.type = WINDOW_RESIZED;
+        out.resize.window_width = e.window.data1;
+        out.resize.window_height = e.window.data2;
     }
     else if (e.type == SDL_KEYDOWN)
     {

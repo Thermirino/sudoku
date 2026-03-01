@@ -86,7 +86,7 @@ void test_board_draw(void)
 	board* b = board_create(board_size);
 	board_set_9x9(b, one_solution);
 	draw_clear();
-	draw_time(time_y, time_x, start_time);
+	draw_time(time_y, time_x, start_time, start_time);
 	draw_difficulty_levels_highlight(dlvls_y, dlvls_x, dlvls_w, dlvls_h, 0);
 	draw_difficulty_levels(dlvls_y, dlvls_x, dlvls_w, dlvls_h);
 	draw_board(b, board_y, board_x, board_side_size);
@@ -119,7 +119,7 @@ void test_board_draw(void)
 				b->cells[i][j].fixed = 0;
 		}
 	draw_clear();
-	draw_time(time_y, time_x, start_time);
+	draw_time(time_y, time_x, start_time, start_time);
 	draw_difficulty_levels_highlight(dlvls_y, dlvls_x, dlvls_w, dlvls_h, 0);
 	draw_difficulty_levels(dlvls_y, dlvls_x, dlvls_w, dlvls_h);
 	draw_board(b, board_y, board_x, board_side_size);
@@ -168,7 +168,7 @@ void test_draw_time(void)
 	while ((e = get_event()).type != QUIT)
 	{
 		draw_clear();
-		draw_time(y, x, start_time);
+		draw_time(y, x, start_time, time(NULL));
 		draw_present();
 	}
 
@@ -181,14 +181,18 @@ void test_draw_solved(void)
 	int window_height = 512;
 	TEST_ASSERT_TRUE(draw_init(window_width, window_height));
 
-	int y = window_height / 3, x = window_width / 3;
-	int solved_popup_width = window_width / 2;
-	int solved_popup_height = window_height / 3;
-	int btn_y, btn_x, btn_w, btn_h;
+	int solved_popup_y = window_height / 3, solved_popup_x = window_width / 3;
+	int solved_popup_w = window_width / 2;
+	int solved_popup_h = window_height / 3;
+    int try_again_btn_w = solved_popup_w / 3;
+    int try_again_btn_h = solved_popup_h / 3;
+    int try_again_btn_x = solved_popup_x + (solved_popup_w - try_again_btn_w) / 2;
+    int try_again_btn_y = solved_popup_y + solved_popup_h - 
+                          (solved_popup_h - try_again_btn_h) * 2 / 3;
 	time_t start_time = time(NULL);
-	draw_solved_popup(y, x, solved_popup_width, solved_popup_height,
-		&btn_y, &btn_x, &btn_w, &btn_h,
-		start_time);
+	draw_solved_popup(solved_popup_y, solved_popup_x, solved_popup_w, solved_popup_h,
+		              try_again_btn_y, try_again_btn_x, try_again_btn_w, try_again_btn_h,
+		              start_time, start_time);
 
 	event e;
 	while ((e = get_event()).type != QUIT)

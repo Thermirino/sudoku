@@ -32,6 +32,8 @@ struct game_state
     int time_y, time_x;                    // coords of the center
     int solved_popup_y, solved_popup_x;    // coords of the upper left corner
     int solved_popup_w, solved_popup_h;
+    int try_again_btn_y, try_again_btn_x;
+    int try_again_btn_w, try_again_btn_h;
     int help_y, help_x;
     int solver_delay_y, solver_delay_x;
     int solver_delay;
@@ -41,7 +43,9 @@ struct game_state
     int ninvalid_cells;
     board* brd;
     board* board_solved;
+    bool solved;
     time_t start_time;
+    time_t finish_time;
 };
 
 game_state* game_init(int window_width, int window_height,

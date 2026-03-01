@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <time.h>
 #include <board.h>
+#include <sudoku.h>
 
 #ifndef UNUSED
 #define UNUSED(x) (void)(x)
@@ -72,6 +73,7 @@ extern const char* difficulty_levels[];
 extern size_t ndlevels;
 
 bool draw_init(int screen_width, int screen_height);
+void update_coords(game_state* gs, int win_width, int win_height);
 void draw_set_color(color_name cname, int alpha);
 
 bool coords_to_cell(board* b, int board_y, int board_x,
@@ -99,11 +101,11 @@ void draw_difficulty_levels(int y, int x,
 void draw_difficulty_levels_highlight(int y, int x, 
                                       int width, int height, int lvl);
 
-void draw_time(int y, int x, time_t start_time);
+void draw_time(int y, int x, time_t start_time, time_t cur_time);
 void draw_help_info(int y, int x);
 void draw_solved_popup(int y, int x, int width, int height,
-                       int* btn_y, int* btn_x, int* btn_w, int* btn_h,
-                       time_t start_time);
+                       int btn_y, int btn_x, int btn_w, int btn_h,
+                       time_t start_time, time_t finish_time);
 void draw_solver_delay(int y, int x, int delay);
 
 void draw_clear(void);

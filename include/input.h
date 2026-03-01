@@ -5,6 +5,7 @@ typedef enum
 {
     NO_EVENT = 0,
     QUIT,
+    WINDOW_RESIZED,
     MOUSE_MOTION,
     MOUSE_BUTTON,
     KEYBOARD_BUTTON
@@ -31,6 +32,13 @@ typedef enum
 typedef struct
 {
     event_type type;
+    int window_width;
+    int window_height;
+} resize_event;
+
+typedef struct
+{
+    event_type type;
     int x, y;
 } mouse_event;
 
@@ -43,6 +51,7 @@ typedef struct
 typedef union
 {
     event_type type;
+    resize_event resize;
     mouse_event mouse;
     keyboard_event keyboard;
 } event;

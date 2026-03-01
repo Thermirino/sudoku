@@ -1,3 +1,4 @@
+#include <SDL_video.h>
 #include <stdio.h>
 #include <SDL.h>
 #include <SDL_ttf.h>
@@ -55,7 +56,7 @@ bool draw_init(int screen_width, int screen_height)
     }
     window = SDL_CreateWindow("Sudoku", 
         SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
-        screen_width, screen_height, SDL_WINDOW_SHOWN);
+        screen_width, screen_height, SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
     if (!window)
     {
         printf("SDL_CreateWindow failed: %s\n", SDL_GetError());
@@ -111,6 +112,47 @@ void draw_end(void)
     window = NULL;
     digits_font = NULL;
     text_font = NULL;
+}
+
+void update_coords(game_state* gs, int window_width, int window_height)
+{
+    gs->win_width = window_width;
+    gs->win_height = window_height;
+
+    int min_screen_side_size = window_width < window_height ?
+                               window_width : window_height;
+    int padding_size = (int)(min_screen_side_size * 0.1);
+    int board_side_size = (min_screen_side_size - padding_size * 2) / 
+                           gs->brd->size * gs->brd->size;
+    gs->board_x = (window_width - board_side_size) / 2;
+    gs->board_y = (window_height - board_side_size) / 2;
+    gs->board_side_size = board_side_size;
+
+    gs->dlvls_h = window_height / 5;
+    gs->dlvls_w = window_width / 5;
+    gs->dlvls_y = window_height / 2 - gs->dlvls_h / 2;
+    gs->dlvls_x = gs->board_x / 2 - gs->dlvls_w / 2;
+
+    gs->time_y = padding_size / 2;
+    gs->time_x = window_width / 2;
+
+    gs->solved_popup_w = window_width / 2;
+    gs->solved_popup_h = window_height / 3;
+    gs->solved_popup_y = (window_height - gs->solved_popup_h) / 2;
+    gs->solved_popup_x = (window_width - gs->solved_popup_w) / 2;
+
+    gs->try_again_btn_w = gs->solved_popup_w / 3;
+    gs->try_again_btn_h = gs->solved_popup_h / 3;
+    gs->try_again_btn_x = gs->solved_popup_x + (gs->solved_popup_w - gs->try_again_btn_w) / 2;
+    gs->try_again_btn_y = gs->solved_popup_y + gs->solved_popup_h - 
+                          (gs->solved_popup_h - gs->try_again_btn_h) * 2 / 3;
+
+    int hpadding = (window_width - gs->board_side_size) / 2;
+    gs->help_y = gs->board_y;
+    gs->help_x = (gs->board_x + gs->board_side_size) + (int)(hpadding * 0.2);
+
+    gs->solver_delay_y = gs->board_y;
+    gs->solver_delay_x = gs->dlvls_x + gs->dlvls_w / 2;
 }
 
 void draw_set_color(color_name cname, int alpha)
@@ -363,16 +405,16 @@ static char* str_elapsed_time(int elapsed)
     return str;
 }
 
-void draw_time(int y, int x, time_t start_time)
+void draw_time(int y, int x, time_t start_time, time_t cur_time)
 {
-    int elapsed = (int)difftime(time(NULL), start_time);
+    int elapsed = (int)difftime(cur_time, start_time);
     char* str = str_elapsed_time(elapsed);
     draw_label(str, x, y, TIME_TEXT_COLOR, TIME_TEXT_COLOR_ALPHA, text_font);
 }
 
 void draw_solved_popup(int y, int x, int width, int height,
-                       int* btn_y, int* btn_x, int* btn_w, int* btn_h,
-                       time_t start_time)
+                       int btn_y, int btn_x, int btn_w, int btn_h,
+                       time_t start_time, time_t finish_time)
 {
     SDL_Rect rect = {
         .x = x,
@@ -383,31 +425,23 @@ void draw_solved_popup(int y, int x, int width, int height,
     draw_set_color(SOLVED_POPUP_BG_COLOR, SOLVED_POPUP_BG_COLOR_ALPHA);
     SDL_RenderFillRect(renderer, &rect);
     char text[100];
-    int elapsed = (int)difftime(time(NULL), start_time);
+    int elapsed = (int)difftime(finish_time, start_time);
     snprintf(text, sizeof(text), "Finished in %s", str_elapsed_time(elapsed));
     draw_label(text, x + width / 2, y + height / 3, 
         SOLVED_POPUP_TEXT_COLOR, SOLVED_POPUP_TEXT_COLOR_ALPHA,
         text_font);
 
-    int bw = width / 3;
-    int bh = height / 3;
-    int bx = x + (width - bw) / 2;
-    int by = y + height - (height - bh) * 2 / 3;
     SDL_Rect rect2 = {
-        .x = bx,
-        .y = by,
-        .w = bw,
-        .h = bh
+        .x = btn_x,
+        .y = btn_y,
+        .w = btn_w,
+        .h = btn_h
     };
     draw_set_color(TRYAGAIN_BUTTON_BG_COLOR, TRYAGAIN_BUTTON_BG_COLOR_ALPHA);
     SDL_RenderFillRect(renderer, &rect2);
     draw_label("Play again", rect2.x + rect2.w / 2, rect2.y + rect2.h / 2,
         TRYAGAIN_BUTTON_TEXT_COLOR, TRYAGAIN_BUTTON_TEXT_ALPHA,
         text_font);
-    *btn_y = by;
-    *btn_x = bx;
-    *btn_w = bw;
-    *btn_h = bh;
 }
 
 void draw_help_info(int y, int x)

@@ -65,7 +65,9 @@ bool game_restart(game_state* gs)
 
     gs->selected_cell.row = -1;
     gs->selected_cell.col = -1;
+    gs->solved = false;
     gs->start_time = time(NULL);
+    gs->finish_time = gs->start_time;
     return true;
 }
 
@@ -116,43 +118,15 @@ static game_state* game_state_create(int window_width, int window_height,
         return NULL;
     }
     gs->ninvalid_cells = 0;
-
-    gs->win_width = window_width;
-    gs->win_height = window_height;
-
-    int min_screen_side_size = window_width < window_height ?
-        window_width : window_height;
-    int padding_size = (int)(min_screen_side_size * 0.1);
-    int board_side_size = (min_screen_side_size - padding_size * 2) / 
-        board_size * board_size;
-    gs->board_x = (window_width - board_side_size) / 2;
-    gs->board_y = (window_height - board_side_size) / 2;
+    gs->solver_delay = 50;
+    gs->cur_dlvl = 0;
     gs->selected_cell.row = -1;
     gs->selected_cell.col = -1;
-    gs->board_side_size = board_side_size;
-
-    gs->dlvls_h = window_height / 5;
-    gs->dlvls_w = window_width / 5;
-    gs->dlvls_y = window_height / 2 - gs->dlvls_h / 2;
-    gs->dlvls_x = gs->board_x / 2 - gs->dlvls_w / 2;
-    gs->cur_dlvl = 0;
-
-    gs->time_y = padding_size / 2;
-    gs->time_x = window_width / 2;
+    gs->solved = false;
     gs->start_time = time(NULL);
+    gs->finish_time = gs->start_time;
 
-    gs->solved_popup_w = window_width / 2;
-    gs->solved_popup_h = window_height / 3;
-    gs->solved_popup_y = (window_height - gs->solved_popup_h) / 2;
-    gs->solved_popup_x = (window_width - gs->solved_popup_w) / 2;
-
-    int hpadding = (window_width - gs->board_side_size) / 2;
-    gs->help_y = gs->board_y;
-    gs->help_x = (gs->board_x + gs->board_side_size) + (int)(hpadding * 0.2);
-
-    gs->solver_delay_y = gs->board_y;
-    gs->solver_delay_x = gs->dlvls_x + gs->dlvls_w / 2;
-    gs->solver_delay = 50;
+    update_coords(gs, window_width, window_height);
     return gs;
 }
 
@@ -204,7 +178,7 @@ static void game_dlvls_draw(game_state* gs)
 
 static void game_time_draw(game_state* gs)
 {
-    draw_time(gs->time_y, gs->time_x, gs->start_time);
+    draw_time(gs->time_y, gs->time_x, gs->start_time, time(NULL));
 }
 
 static void game_help_info_draw(game_state* gs)
@@ -217,26 +191,12 @@ static void game_solver_delay_draw(game_state* gs)
     draw_solver_delay(gs->solver_delay_y, gs->solver_delay_x, gs->solver_delay);
 }
 
-static bool solved_try_again(game_state* gs)
+static void solved_popup_draw(game_state* gs)
 {
-    event e;
-    int btn_y, btn_x, btn_w, btn_h;
     draw_solved_popup(gs->solved_popup_y, gs->solved_popup_x,
         gs->solved_popup_w, gs->solved_popup_h,
-        &btn_y, &btn_x, &btn_w, &btn_h,
-        gs->start_time);
-    draw_present();
-    while ((e = get_event()).type != QUIT)
-    {
-        if (e.type == MOUSE_BUTTON)
-        {
-            if (e.mouse.x < btn_x || e.mouse.y < btn_y ||
-                e.mouse.x > btn_x + btn_w || e.mouse.y > btn_y + btn_h)
-                continue;
-            return true;
-        }
-    }
-    return false;
+        gs->try_again_btn_y, gs->try_again_btn_x, gs->try_again_btn_w, gs->try_again_btn_h,
+        gs->start_time, gs->finish_time);
 }
 
 static void render_frame(game_state* gs)
@@ -244,9 +204,12 @@ static void render_frame(game_state* gs)
     draw_clear();
     game_solver_delay_draw(gs);
     game_help_info_draw(gs);
-    game_time_draw(gs);
+    if (!gs->solved)
+        game_time_draw(gs);
     game_dlvls_draw(gs);
     game_board_draw(gs);
+    if (gs->solved)
+        solved_popup_draw(gs);
     draw_present();
 }
 
@@ -254,7 +217,6 @@ static bool cbf(board* b, void* ctx)
 {
     (void)b;
     game_state* gs = (game_state*)ctx;
-    // board_print(b);
     render_frame(gs);
     draw_present();
     draw_sleep(gs->solver_delay);
@@ -276,23 +238,39 @@ void game_start(game_state* gs)
     render_frame(gs);
     while ((e = get_event()).type != QUIT)
     {
-        if (e.type == MOUSE_BUTTON)
+        if (e.type == WINDOW_RESIZED)
         {
-            int x = e.mouse.x;
-            int y = e.mouse.y;
-            int row;
-            int col;
-            int lvl;
-            if (coords_to_cell(gs->brd, gs->board_y, gs->board_x, y, x,
-                gs->board_side_size, &row, &col))
+            update_coords(gs, e.resize.window_width, e.resize.window_height);
+        }
+        else if (e.type == MOUSE_BUTTON)
+        {
+            if (!gs->solved)
             {
-                gs->selected_cell.col = col;
-                gs->selected_cell.row = row;
+                int x = e.mouse.x;
+                int y = e.mouse.y;
+                int row;
+                int col;
+                int lvl;
+                if (coords_to_cell(gs->brd, gs->board_y, gs->board_x, y, x,
+                    gs->board_side_size, &row, &col))
+                {
+                    gs->selected_cell.col = col;
+                    gs->selected_cell.row = row;
+                }
+                else if (coords_to_dlvl(gs->dlvls_y, gs->dlvls_x, gs->dlvls_w, gs->dlvls_h,
+                                        y, x, &lvl))
+                {
+                    gs->cur_dlvl = lvl;
+                    if (!game_restart(gs))
+                    {
+                        return;
+                    }
+                }
             }
-            else if (coords_to_dlvl(gs->dlvls_y, gs->dlvls_x, gs->dlvls_w, gs->dlvls_h,
-                y, x, &lvl))
+            else if (e.mouse.x >= gs->try_again_btn_x && e.mouse.y >= gs->try_again_btn_y &&
+                     e.mouse.x <= gs->try_again_btn_x + gs->try_again_btn_w &&
+                     e.mouse.y <= gs->try_again_btn_y + gs->try_again_btn_h)
             {
-                gs->cur_dlvl = lvl;
                 if (!game_restart(gs))
                 {
                     return;
@@ -366,32 +344,12 @@ void game_start(game_state* gs)
         }
 
         board_is_valid(gs->brd, gs->invalid_cells, &gs->ninvalid_cells);
-        if (board_is_equal(gs->brd, gs->board_solved))
+        if (!gs->solved && board_is_equal(gs->brd, gs->board_solved))
         {
-            render_frame(gs);
-            if (solved_try_again(gs))
-            {
-                if (!game_restart(gs))
-                {
-                    return;
-                }
-            }
-            else
-                return;
+            gs->solved = true;
+            gs->finish_time = time(NULL);
         }
-        // else if (e.type == MOUSE_MOTION)
-        // {
-        //  int x = e.mouse.x;
-        //  int y = e.mouse.y;
-        //  int row;
-        //  int col;
-        //  if (coords_to_cell(gs->b, gs->board_y, gs->board_x, y, x,
-        //      gs->board_side_size, &row, &col))
-        //  {
-        //      draw_board_higlight_cell(gs->b, gs->board_y, gs->board_x,
-        //          gs->board_side_size, row, col, 255, 0, 0, 50);
-        //  }
-        // }
+
         if (e.type != NO_EVENT ||
             difftime(time(NULL), last_render_time) > 0)
         {
