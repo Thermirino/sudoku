@@ -223,6 +223,10 @@ static bool cbf(board* b, void* ctx)
     event e;
     while ((e = get_event()).type != NO_EVENT)
     {
+        if (e.type == WINDOW_RESIZED)
+        {
+            update_coords(gs, e.resize.window_width, e.resize.window_height);
+        }
         if (e.type == KEYBOARD_BUTTON && e.keyboard.key == KEYBOARD_S)
         {
             return false;
